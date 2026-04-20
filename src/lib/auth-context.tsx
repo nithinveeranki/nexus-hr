@@ -1,6 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useContext } from 'react';
 
 type AppRole = 'admin' | 'manager' | 'employee';
 
@@ -19,8 +17,8 @@ interface Profile {
 }
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  session: { access_token: string } | null;
+  user: { id: string; email: string } | null;
   profile: Profile | null;
   role: AppRole;
   loading: boolean;
@@ -29,90 +27,41 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const MOCK_PROFILE: Profile = {
+  id: 'mock-admin-id',
+  full_name: 'Admin User',
+  email: 'admin@opscore.local',
+  phone: '',
+  avatar_url: null,
+  department_id: null,
+  designation_id: null,
+  employee_id: 'EMP-001',
+  status: 'active',
+  joining_date: new Date().toISOString().split('T')[0],
+  salary: null,
+};
+
+const MOCK_CONTEXT: AuthContextType = {
+  session: { access_token: 'mock-token' },
+  user: { id: 'mock-admin-id', email: 'admin@opscore.local' },
+  profile: MOCK_PROFILE,
+  role: 'admin',
+  loading: false,
+  signIn: async () => ({ error: null }),
+  signOut: async () => { /* no-op in demo mode */ },
+  refreshProfile: async () => { /* no-op in demo mode */ },
+};
+
+const AuthContext = createContext<AuthContextType>(MOCK_CONTEXT);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<AppRole>('employee');
-  const [loading, setLoading] = useState(true);
-
-  const fetchProfile = async (userId: string) => {
-    const { data: profileData } = await (supabase
-      .from('profiles')
-      .select('*') as any)
-      .eq('auth_user_id', userId)
-      .single();
-    
-    if (profileData) {
-      setProfile(profileData as unknown as Profile);
-    }
-
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-    
-    if (roleData && roleData.length > 0) {
-      const roles = roleData.map(r => r.role);
-      if (roles.includes('admin')) setRole('admin');
-      else if (roles.includes('manager')) setRole('manager');
-      else setRole('employee');
-    }
-  };
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchProfile(session.user.id), 0);
-        } else {
-          setProfile(null);
-          setRole('employee');
-        }
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setRole('employee');
-  };
-
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
-  };
-
   return (
-    <AuthContext.Provider value={{ session, user, profile, role, loading, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={MOCK_CONTEXT}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  return useContext(AuthContext);
 }

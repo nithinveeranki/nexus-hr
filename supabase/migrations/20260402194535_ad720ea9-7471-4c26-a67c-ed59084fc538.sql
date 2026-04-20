@@ -24,7 +24,7 @@ CREATE TABLE public.designations (
 
 -- Create profiles table
 CREATE TABLE public.profiles (
-  id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT NOT NULL DEFAULT '',
@@ -42,10 +42,10 @@ CREATE TABLE public.profiles (
 -- Add FK from departments.manager_id to profiles
 ALTER TABLE public.departments ADD CONSTRAINT fk_departments_manager FOREIGN KEY (manager_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
--- Create user_roles table (secure RLS pattern)
+-- Create user_roles table
 CREATE TABLE public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID NOT NULL,
   role public.app_role NOT NULL,
   UNIQUE (user_id, role)
 );
@@ -68,93 +68,21 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
--- Security definer function to check roles (avoids RLS recursion)
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
-  )
-$$;
+-- Open-access RLS policies (no authentication required)
+CREATE POLICY "Open access departments" ON public.departments
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- Helper: get user's department_id (security definer to avoid recursion)
-CREATE OR REPLACE FUNCTION public.get_user_department_id(_user_id UUID)
-RETURNS UUID
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT department_id FROM public.profiles WHERE id = _user_id
-$$;
+CREATE POLICY "Open access designations" ON public.designations
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- RLS policies for user_roles
-CREATE POLICY "Admins can manage user_roles" ON public.user_roles
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Open access profiles" ON public.profiles
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
-CREATE POLICY "Users can view own roles" ON public.user_roles
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+CREATE POLICY "Open access user_roles" ON public.user_roles
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- RLS policies for departments
-CREATE POLICY "Anyone authenticated can view departments" ON public.departments
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admins can manage departments" ON public.departments
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- RLS policies for designations
-CREATE POLICY "Anyone authenticated can view designations" ON public.designations
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admins can manage designations" ON public.designations
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- RLS policies for profiles
-CREATE POLICY "Admins can do everything on profiles" ON public.profiles
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Managers can view department profiles" ON public.profiles
-  FOR SELECT TO authenticated
-  USING (
-    public.has_role(auth.uid(), 'manager')
-    AND department_id = public.get_user_department_id(auth.uid())
-  );
-
-CREATE POLICY "Users can view own profile" ON public.profiles
-  FOR SELECT TO authenticated
-  USING (id = auth.uid());
-
-CREATE POLICY "Users can update own profile" ON public.profiles
-  FOR UPDATE TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
-
--- RLS policies for activity_logs
-CREATE POLICY "Admins can view activity logs" ON public.activity_logs
-  FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can insert activity logs" ON public.activity_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Managers can insert activity logs" ON public.activity_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'manager'));
-
-CREATE POLICY "Authenticated users can insert own activity logs" ON public.activity_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (actor_id = auth.uid());
+CREATE POLICY "Open access activity_logs" ON public.activity_logs
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -169,29 +97,8 @@ CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Auto-create profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, email, employee_id)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-    NEW.email,
-    'EMP-' || LPAD(nextval('employee_id_seq')::text, 3, '0')
-  );
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, 'employee');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
 -- Sequence for employee IDs
 CREATE SEQUENCE IF NOT EXISTS public.employee_id_seq START WITH 100;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Enable realtime for activity_logs
 ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_logs;
