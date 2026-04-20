@@ -15,7 +15,7 @@ import { Moon, Sun } from 'lucide-react';
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [companyName, setCompanyName] = useState('OpsCore HR');
+  const [companyName, setCompanyName] = useState('NexusHR');
   const [name, setName] = useState(profile?.full_name || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [currentPassword, setCurrentPassword] = useState('');

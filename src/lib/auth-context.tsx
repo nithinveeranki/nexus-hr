@@ -30,7 +30,7 @@ interface AuthContextType {
 const MOCK_PROFILE: Profile = {
   id: 'mock-admin-id',
   full_name: 'Admin User',
-  email: 'admin@opscore.local',
+  email: 'admin@nexushr.local',
   phone: '',
   avatar_url: null,
   department_id: null,
@@ -43,7 +43,7 @@ const MOCK_PROFILE: Profile = {
 
 const MOCK_CONTEXT: AuthContextType = {
   session: { access_token: 'mock-token' },
-  user: { id: 'mock-admin-id', email: 'admin@opscore.local' },
+  user: { id: 'mock-admin-id', email: 'admin@nexushr.local' },
   profile: MOCK_PROFILE,
   role: 'admin',
   loading: false,

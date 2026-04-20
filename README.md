@@ -1,4 +1,4 @@
-# OpsCore HR
+# NexusHR
 
 > A centralized HR & Business Operations platform that automates employee 
 > lifecycle management, departmental workflows, and operational KPI reporting.
@@ -14,7 +14,7 @@
 
 ## 🧠 About
 
-OpsCore HR was built at **Sri City Hackathon 2024** as a full-stack business 
+NexusHR was built at **Sri City Hackathon 2024** as a full-stack business 
 operations platform. It automates core HR workflows — managing employee records, 
 department assignments, role-based access control, and delivers live operational 
 KPIs to management on demand.
@@ -24,7 +24,6 @@ rebuild using React, TypeScript, and Supabase.
 
 ## ✨ Features
 
-- 🔐 **Role-Based Access Control** — Admin, Manager, Employee roles
 - 👥 **Employee Management** — Full CRUD with search, filter, pagination
 - 🏢 **Department & Designation Management**
 - 📊 **Live KPI Dashboard** — Headcount, role distribution, dept performance
@@ -40,7 +39,6 @@ rebuild using React, TypeScript, and Supabase.
 | Frontend | React 18, TypeScript, Vite |
 | Styling | Tailwind CSS, shadcn/ui |
 | Backend & DB | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
 | Charts | Recharts |
 | Deployment | Vercel |
 
@@ -66,7 +64,10 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 4. **Run migrations** — paste files from `supabase/migrations/` 
    into Supabase SQL Editor and run in order
 
-5. **Start dev server**
+5. **Seed data** — paste `supabase/seed.sql` into Supabase SQL Editor
+   to populate 8 departments, 24 designations, and 120 employees
+
+6. **Start dev server**
 ```bash
 npm run dev
 ```
