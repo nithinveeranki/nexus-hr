@@ -4,6 +4,16 @@
 -- ============================================================
 
 -- ────────────────────────────────────────────────────────────
+-- CLEANUP: Wipe existing data (order matters for FK constraints)
+-- ────────────────────────────────────────────────────────────
+TRUNCATE public.activity_logs CASCADE;
+TRUNCATE public.user_roles CASCADE;
+UPDATE public.departments SET manager_id = NULL;
+TRUNCATE public.profiles CASCADE;
+TRUNCATE public.designations CASCADE;
+TRUNCATE public.departments CASCADE;
+
+-- ────────────────────────────────────────────────────────────
 -- DEPARTMENTS
 -- ────────────────────────────────────────────────────────────
 INSERT INTO public.departments (id, name, description) VALUES
