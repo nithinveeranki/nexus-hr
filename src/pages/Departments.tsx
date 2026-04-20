@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { logActivity } from '@/lib/activity-logger';
+import { logActivity, guardedMutation } from '@/lib/activity-logger';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,12 +79,12 @@ export default function DepartmentsPage() {
     setSaving(true);
     const payload = { name: form.name, description: form.description, manager_id: form.manager_id || null };
     if (editId) {
-      const { error } = await supabase.from('departments').update(payload).eq('id', editId);
+      const { error } = await guardedMutation(() => supabase.from('departments').update(payload).eq('id', editId));
       if (error) { toast.error(error.message); setSaving(false); return; }
       await logActivity(null, 'Updated department', 'department', editId, { name: form.name });
       toast.success('Department updated');
     } else {
-      const { error, data } = await supabase.from('departments').insert([payload]).select().single();
+      const { error, data } = await guardedMutation(() => supabase.from('departments').insert([payload]).select().single());
       if (error) { toast.error(error.message); setSaving(false); return; }
       await logActivity(null, 'Created department', 'department', data?.id, { name: form.name });
       toast.success('Department created');
@@ -105,7 +105,7 @@ export default function DepartmentsPage() {
       return;
     }
 
-    const { error } = await supabase.from('departments').delete().eq('id', deleteId);
+    const { error } = await guardedMutation(() => supabase.from('departments').delete().eq('id', deleteId));
     if (error) { toast.error(error.message); setSaving(false); return; }
     await logActivity(null, 'Deleted department', 'department', deleteId);
     toast.success('Department deleted');

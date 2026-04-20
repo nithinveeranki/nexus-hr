@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { logActivity } from '@/lib/activity-logger';
+import { logActivity, guardedMutation } from '@/lib/activity-logger';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,12 +64,12 @@ export default function DesignationsPage() {
     setSaving(true);
     const payload = { title: form.title, department_id: form.department_id, level: form.level as any };
     if (editId) {
-      const { error } = await supabase.from('designations').update(payload).eq('id', editId);
+      const { error } = await guardedMutation(() => supabase.from('designations').update(payload).eq('id', editId));
       if (error) { toast.error(error.message); setSaving(false); return; }
       await logActivity(null, 'Updated designation', 'designation', editId);
       toast.success('Designation updated');
     } else {
-      const { error, data } = await supabase.from('designations').insert([payload]).select().single();
+      const { error, data } = await guardedMutation(() => supabase.from('designations').insert([payload]).select().single());
       if (error) { toast.error(error.message); setSaving(false); return; }
       await logActivity(null, 'Created designation', 'designation', data?.id);
       toast.success('Designation created');
@@ -80,7 +80,7 @@ export default function DesignationsPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     setSaving(true);
-    const { error } = await supabase.from('designations').delete().eq('id', deleteId);
+    const { error } = await guardedMutation(() => supabase.from('designations').delete().eq('id', deleteId));
     if (error) { toast.error(error.message); setSaving(false); return; }
     await logActivity(null, 'Deleted designation', 'designation', deleteId);
     toast.success('Designation deleted');

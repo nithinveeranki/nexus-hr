@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { logActivity } from '@/lib/activity-logger';
+import { logActivity, guardedMutation } from '@/lib/activity-logger';
 import { exportToCSV } from '@/lib/csv-export';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -193,7 +193,7 @@ export default function EmployeesPage() {
         salary: form.salary ? parseFloat(form.salary) : null,
       };
       
-      const { error } = await supabase.from('profiles').update(payload).eq('id', editId);
+      const { error } = await guardedMutation(() => supabase.from('profiles').update(payload).eq('id', editId));
       if (error) { toast.error(error.message); setSaving(false); return; }
       await logActivity(null, 'Updated employee', 'employee', editId, { name: form.full_name });
       toast.success('Employee updated successfully');
@@ -208,7 +208,7 @@ export default function EmployeesPage() {
         salary: form.salary ? parseFloat(form.salary) : null,
       };
 
-      const { data, error } = await supabase.from('profiles').insert([payload as any]).select().single();
+      const { data, error } = await guardedMutation(() => supabase.from('profiles').insert([payload as any]).select().single());
       if (error) { toast.error(error.message); setSaving(false); return; }
       if (data) await logActivity(null, 'Created employee', 'employee', data.id, { name: form.full_name });
       toast.success('Employee created successfully');
@@ -221,7 +221,7 @@ export default function EmployeesPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     setSaving(true);
-    const { error } = await supabase.from('profiles').delete().eq('id', deleteId);
+    const { error } = await guardedMutation(() => supabase.from('profiles').delete().eq('id', deleteId));
     if (error) { toast.error(error.message); setSaving(false); return; }
     await logActivity(null, 'Deleted employee', 'employee', deleteId);
     toast.success('Employee deleted successfully');

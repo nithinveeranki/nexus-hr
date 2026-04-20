@@ -68,21 +68,21 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
--- Open-access RLS policies (no authentication required)
-CREATE POLICY "Open access departments" ON public.departments
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+-- Read-only RLS policies (SELECT only — no create/update/delete for visitors)
+CREATE POLICY "Read only departments" ON public.departments
+  FOR SELECT TO anon, authenticated USING (true);
 
-CREATE POLICY "Open access designations" ON public.designations
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Read only designations" ON public.designations
+  FOR SELECT TO anon, authenticated USING (true);
 
-CREATE POLICY "Open access profiles" ON public.profiles
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Read only profiles" ON public.profiles
+  FOR SELECT TO anon, authenticated USING (true);
 
-CREATE POLICY "Open access user_roles" ON public.user_roles
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Read only user_roles" ON public.user_roles
+  FOR SELECT TO anon, authenticated USING (true);
 
-CREATE POLICY "Open access activity_logs" ON public.activity_logs
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Read only activity_logs" ON public.activity_logs
+  FOR SELECT TO anon, authenticated USING (true);
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
