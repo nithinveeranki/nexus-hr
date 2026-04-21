@@ -3,6 +3,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { supabase } from '@/integrations/supabase/client';
+import { guardedMutation } from '@/lib/activity-logger';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,8 +25,8 @@ export default function SettingsPage() {
 
   const handleUpdateProfile = async () => {
     if (!name) { toast.error('Name is required'); return; }
-    const { error } = await supabase.from('profiles').update({ full_name: name, phone }).eq('id', profile?.id);
-    if (error) { toast.error(error.message); return; }
+    const { error } = await guardedMutation(() => supabase.from('profiles').update({ full_name: name, phone }).eq('id', profile?.id));
+    if (error) { return; }
     await refreshProfile();
     toast.success('Profile updated');
   };
@@ -33,8 +34,8 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) { toast.error(error.message); return; }
+    const { error } = await guardedMutation(() => supabase.auth.updateUser({ password: newPassword }) as any);
+    if (error) { return; }
     toast.success('Password updated');
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
   };
