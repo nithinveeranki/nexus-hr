@@ -10,7 +10,7 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-teal?logo=tailwindcss)
 
 ## 🚀 Live Demo
-**[View Live App](#)** ← Update after deployment
+**[View Live App](https://nexus-hr-htb5.vercel.app/)** ← Update after deployment
 
 ## 🧠 About
 
