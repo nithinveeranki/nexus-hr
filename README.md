@@ -46,8 +46,8 @@ rebuild using React, TypeScript, and Supabase.
 
 1. **Clone the repo**
 ```bash
-git clone https://github.com/nithinveeranki/opscore-hr.git
-cd opscore-hr
+git clone https://github.com/nithinveeranki/nexus-hr.git
+cd nexus-hr
 ```
 
 2. **Install dependencies**
