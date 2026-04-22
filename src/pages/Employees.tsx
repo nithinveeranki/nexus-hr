@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/lib/auth-context';
 import { logActivity, guardedMutation } from '@/lib/activity-logger';
 import { exportToCSV } from '@/lib/csv-export';
@@ -35,11 +36,14 @@ interface Employee {
   designation_id: string | null;
   departments: { name: string } | null;
   designations: { title: string } | null;
-  role?: string;
+  role?: Enums<'app_role'>;
 }
 
 interface Department { id: string; name: string; }
 interface Designation { id: string; title: string; department_id: string; }
+type EmployeeStatus = Enums<'employee_status'>;
+type AppRole = Enums<'app_role'>;
+type ProfileWithRole = Tables<'profiles'> & { role?: AppRole };
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -70,9 +74,9 @@ export default function EmployeesPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', employee_id: '',
-    department_id: '', designation_id: '', status: 'active' as string,
+    department_id: '', designation_id: '', status: 'active' as EmployeeStatus,
     joining_date: new Date().toISOString().split('T')[0], salary: '',
-    role: 'employee',
+    role: 'employee' as AppRole,
   });
 
   useEffect(() => {
@@ -105,7 +109,7 @@ export default function EmployeesPage() {
       query = query.eq('department_id', deptFilter);
     }
     if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter as any);
+      query = query.eq('status', statusFilter as EmployeeStatus);
     }
 
     const from = (page - 1) * perPage;
@@ -118,12 +122,13 @@ export default function EmployeesPage() {
     if (error) {
       toast.error('Failed to fetch employees: ' + error.message);
     } else {
-      const enrichedData = (data as any[] || []).map(emp => ({
+      const enrichedData = ((data || []) as ProfileWithRole[]).map(emp => ({
         ...emp,
         departments: { name: departments.find(d => d.id === emp.department_id)?.name || '' },
-        designations: { title: designations.find(d => d.id === emp.designation_id)?.title || '' }
+        designations: { title: designations.find(d => d.id === emp.designation_id)?.title || '' },
+        role: emp.role || 'employee',
       }));
-      setEmployees((enrichedData as unknown as Employee[]) || []);
+      setEmployees((enrichedData as Employee[]) || []);
       setTotalCount(count || 0);
     }
     setLoading(false);
@@ -133,11 +138,11 @@ export default function EmployeesPage() {
     let query = supabase.from('profiles').select('*');
     if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`);
     if (deptFilter !== 'all') query = query.eq('department_id', deptFilter);
-    if (statusFilter !== 'all') query = query.eq('status', statusFilter as any);
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter as EmployeeStatus);
     
     const { data } = await query;
     if (data) {
-      const exportData = (data as any[]).map(e => ({
+      const exportData = (data as Tables<'profiles'>[]).map(e => ({
         Name: e.full_name,
         Email: e.email,
         ID: e.employee_id,
@@ -183,7 +188,7 @@ export default function EmployeesPage() {
     }
 
     if (editId) {
-      const payload = {
+      const payload: TablesUpdate<'profiles'> & { role?: AppRole } = {
         full_name: form.full_name, email: form.email, phone: form.phone,
         employee_id: finalEmpId, department_id: form.department_id || null,
         designation_id: form.designation_id || null,
@@ -198,7 +203,7 @@ export default function EmployeesPage() {
       await logActivity(null, 'Updated employee', 'employee', editId, { name: form.full_name });
       toast.success('Employee updated successfully');
     } else {
-      const payload = {
+      const payload: TablesInsert<'profiles'> & { role?: AppRole } = {
         full_name: form.full_name, email: form.email, phone: form.phone,
         employee_id: finalEmpId, department_id: form.department_id || null,
         designation_id: form.designation_id || null,
@@ -208,7 +213,7 @@ export default function EmployeesPage() {
         salary: form.salary ? parseFloat(form.salary) : null,
       };
 
-      const { data, error } = await guardedMutation(() => supabase.from('profiles').insert([payload as any]).select().single());
+      const { data, error } = await guardedMutation(() => supabase.from('profiles').insert([payload]).select().single());
       if (error) { toast.error(error.message); setSaving(false); return; }
       if (data) await logActivity(null, 'Created employee', 'employee', data.id, { name: form.full_name });
       toast.success('Employee created successfully');
@@ -417,7 +422,7 @@ export default function EmployeesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Role</Label>
-              <Select disabled={saving} value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+              <Select disabled={saving} value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as AppRole }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -428,7 +433,7 @@ export default function EmployeesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select disabled={saving} value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+              <Select disabled={saving} value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as EmployeeStatus }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>

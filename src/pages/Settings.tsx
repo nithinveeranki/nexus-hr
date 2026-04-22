@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
-    const { error } = await guardedMutation(() => supabase.auth.updateUser({ password: newPassword }) as any);
+    const { error } = await guardedMutation(() => supabase.auth.updateUser({ password: newPassword }));
     if (error) { return; }
     toast.success('Password updated');
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums, Tables } from '@/integrations/supabase/types';
 import { exportToCSV } from '@/lib/csv-export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,12 +16,24 @@ import {
 
 const COLORS = ['hsl(168,80%,32%)', 'hsl(262,60%,55%)', 'hsl(24,80%,55%)', 'hsl(210,70%,55%)', 'hsl(340,65%,55%)'];
 
+type ProfileWithRole = Tables<'profiles'> & { role?: Enums<'app_role'> | null };
+type HeadcountRow = {
+  name: string;
+  total: number;
+  active: number;
+  inactive: number;
+  on_leave: number;
+  pctActive: number;
+};
+type RoleCountRow = { name: string; value: number; pct: number };
+type TenureBucketRow = { label: string; count: number };
+
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [designations, setDesignations] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<ProfileWithRole[]>([]);
+  const [departments, setDepartments] = useState<Tables<'departments'>[]>([]);
+  const [roles, setRoles] = useState<Tables<'user_roles'>[]>([]);
+  const [designations, setDesignations] = useState<Tables<'designations'>[]>([]);
 
   useEffect(() => {
     const fetch = async () => {
@@ -30,10 +43,10 @@ export default function ReportsPage() {
         supabase.from('user_roles').select('*'),
         supabase.from('designations').select('*'),
       ]);
-      setProfiles(p.data || []);
-      setDepartments(d.data || []);
-      setRoles(r.data || []);
-      setDesignations(des.data || []);
+      setProfiles((p.data || []) as ProfileWithRole[]);
+      setDepartments((d.data || []) as Tables<'departments'>[]);
+      setRoles((r.data || []) as Tables<'user_roles'>[]);
+      setDesignations((des.data || []) as Tables<'designations'>[]);
       setLoading(false);
     };
     fetch();
@@ -79,7 +92,7 @@ export default function ReportsPage() {
   }, [profiles]);
 
   // HEADCOUNT
-  const headcountByDept = useMemo(() => {
+  const headcountByDept = useMemo<HeadcountRow[]>(() => {
     return departments.map(d => {
       const dp = profiles.filter(p => p.department_id === d.id);
       return {
@@ -93,13 +106,13 @@ export default function ReportsPage() {
   }, [departments, profiles]);
 
   // TENURE
-  const tenureBuckets = useMemo(() => {
-    const buckets = [
-      { label: '<3 months', min: 0, max: 3, employees: [] as any[] },
-      { label: '3-6 months', min: 3, max: 6, employees: [] as any[] },
-      { label: '6-12 months', min: 6, max: 12, employees: [] as any[] },
-      { label: '1-2 years', min: 12, max: 24, employees: [] as any[] },
-      { label: '2+ years', min: 24, max: Infinity, employees: [] as any[] },
+  const tenureBuckets = useMemo<TenureBucketRow[]>(() => {
+    const buckets: Array<{ label: string; min: number; max: number; employees: ProfileWithRole[] }> = [
+      { label: '<3 months', min: 0, max: 3, employees: [] },
+      { label: '3-6 months', min: 3, max: 6, employees: [] },
+      { label: '6-12 months', min: 6, max: 12, employees: [] },
+      { label: '1-2 years', min: 12, max: 24, employees: [] },
+      { label: '2+ years', min: 24, max: Infinity, employees: [] },
     ];
     profiles.forEach(p => {
       if (!p.joining_date) return;
@@ -111,17 +124,19 @@ export default function ReportsPage() {
   }, [profiles]);
 
   // GENERIC TABLE SORTING & PAGINATION
-  const useTableStats = (data: any[]) => {
+  const useTableStats = <T extends Record<string, unknown>>(data: T[]) => {
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc'|'desc' } | null>(null);
     const [page, setPage] = useState(1);
     const perPage = 10;
 
     const sortedData = useMemo(() => {
-      let sortableItems = [...data];
+      const sortableItems = [...data];
       if (sortConfig !== null) {
         sortableItems.sort((a, b) => {
-          if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+          const aValue = a[sortConfig.key as keyof T];
+          const bValue = b[sortConfig.key as keyof T];
+          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
       }
@@ -146,7 +161,7 @@ export default function ReportsPage() {
   const roleStats = useTableStats(roleCounts);
   const tenureStats = useTableStats(tenureBuckets);
 
-  const SortHead = ({ label, sortKey, st }: { label: string, sortKey: string, st: any }) => (
+  const SortHead = ({ label, sortKey, st }: { label: string, sortKey: string, st: { requestSort: (key: string) => void } }) => (
     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => st.requestSort(sortKey)}>
       <div className="flex items-center gap-1">
         {label} <ArrowUpDown className="h-3 w-3" />
@@ -154,7 +169,7 @@ export default function ReportsPage() {
     </TableHead>
   );
 
-  const Pagination = ({ pg, setPg, tot }: { pg: number, setPg: any, tot: number }) => {
+  const Pagination = ({ pg, setPg, tot }: { pg: number, setPg: React.Dispatch<React.SetStateAction<number>>, tot: number }) => {
     if (tot <= 1) return null;
     return (
       <div className="flex justify-end items-center gap-2 mt-4 px-4">

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums, Tables } from '@/integrations/supabase/types';
 import { Users, UserCheck, Building2, UserPlus } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,13 +21,20 @@ interface KPI {
   color: string;
 }
 
+type ProfileWithRole = Tables<'profiles'> & { role?: Enums<'app_role'> | null };
+type DepartmentOverview = Tables<'departments'> & { headcount: number; managerName: string };
+type RecentEmployee = ProfileWithRole & {
+  departments: { name: string };
+  designations: { title: string };
+};
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [deptData, setDeptData] = useState<{ name: string; count: number }[]>([]);
   const [roleData, setRoleData] = useState<{ name: string; value: number }[]>([]);
-  const [recentEmployees, setRecentEmployees] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [recentEmployees, setRecentEmployees] = useState<RecentEmployee[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOverview[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -66,9 +74,9 @@ export default function DashboardPage() {
         { label: 'New Hires This Month', value: newHiresRes.count || 0, icon: UserPlus, color: 'hsl(24,80%,55%)' },
       ]);
 
-      const depts = deptsRes.data || [];
-      const allProfiles = (allProfilesRes.data as any[]) || [];
-      const desigs = desigRes.data || [];
+      const depts = (deptsRes.data || []) as Tables<'departments'>[];
+      const allProfiles = (allProfilesRes.data || []) as ProfileWithRole[];
+      const desigs = (desigRes.data || []) as Tables<'designations'>[];
 
       // Dept Headcount
       const deptCounts = depts.map(d => ({
@@ -80,17 +88,17 @@ export default function DashboardPage() {
       // Roles
       const roleCountsObj: Record<string, number> = { admin: 0, manager: 0, employee: 0 };
       allProfiles.forEach(p => { 
-        const r = (p as any).role || 'employee';
+        const r = p.role || 'employee';
         roleCountsObj[r] = (roleCountsObj[r] || 0) + 1; 
       });
       setRoleData(Object.entries(roleCountsObj).map(([name, value]) => ({ name, value })));
 
       // Recent
-      const enrichedRecent = (recentEmpRes.data || []).map(emp => ({
+      const enrichedRecent = ((recentEmpRes.data || []) as ProfileWithRole[]).map(emp => ({
         ...emp,
         departments: { name: depts.find(d => d.id === emp.department_id)?.name || '' },
         designations: { title: desigs.find(d => d.id === emp.designation_id)?.title || '' }
-      }));
+      })) as RecentEmployee[];
       setRecentEmployees(enrichedRecent);
 
       // Dept Overview
@@ -193,9 +201,9 @@ export default function DashboardPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{emp.full_name}</p>
-                      <p className="text-xs text-muted-foreground">{(emp.designations as any)?.title || '—'}</p>
+                      <p className="text-xs text-muted-foreground">{emp.designations?.title || '—'}</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">{(emp.departments as any)?.name || '—'}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{emp.departments?.name || '—'}</Badge>
                   </div>
                 ))}
                 {recentEmployees.length === 0 && (

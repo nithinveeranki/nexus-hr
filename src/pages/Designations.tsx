@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums, Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/lib/auth-context';
 import { logActivity, guardedMutation } from '@/lib/activity-logger';
 import { toast } from 'sonner';
@@ -27,16 +28,25 @@ const levelColors: Record<string, string> = {
   executive: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
+type DesignationWithDepartment = Tables<'designations'> & {
+  departments: { name: string } | null;
+  empCount: number;
+};
+
 export default function DesignationsPage() {
   const { role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [designations, setDesignations] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<DesignationWithDepartment[]>([]);
+  const [departments, setDepartments] = useState<Pick<Tables<'departments'>, 'id' | 'name'>[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: '', department_id: '', level: 'mid' });
+  const [form, setForm] = useState<{ title: string; department_id: string; level: Enums<'designation_level'> }>({
+    title: '',
+    department_id: '',
+    level: 'mid',
+  });
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -47,8 +57,8 @@ export default function DesignationsPage() {
       supabase.from('departments').select('id, name'),
       supabase.from('profiles').select('designation_id'),
     ]);
-    const des = desRes.data || [];
-    const profs = profRes.data || [];
+    const des = (desRes.data || []) as Array<Tables<'designations'> & { departments: { name: string } | null }>;
+    const profs = (profRes.data || []) as Pick<Tables<'profiles'>, 'designation_id'>[];
     setDesignations(des.map(d => ({
       ...d, empCount: profs.filter(p => p.designation_id === d.id).length
     })));
@@ -57,12 +67,12 @@ export default function DesignationsPage() {
   };
 
   const openAdd = () => { setEditId(null); setForm({ title: '', department_id: '', level: 'mid' }); setFormOpen(true); };
-  const openEdit = (d: any) => { setEditId(d.id); setForm({ title: d.title, department_id: d.department_id, level: d.level }); setFormOpen(true); };
+  const openEdit = (d: DesignationWithDepartment) => { setEditId(d.id); setForm({ title: d.title, department_id: d.department_id, level: d.level }); setFormOpen(true); };
 
   const handleSave = async () => {
     if (!form.title || !form.department_id) { toast.error('Title and department are required'); return; }
     setSaving(true);
-    const payload = { title: form.title, department_id: form.department_id, level: form.level as any };
+    const payload = { title: form.title, department_id: form.department_id, level: form.level };
     if (editId) {
       const { error } = await guardedMutation(() => supabase.from('designations').update(payload).eq('id', editId));
       if (error) { toast.error(error.message); setSaving(false); return; }
@@ -170,7 +180,7 @@ export default function DesignationsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Level</Label>
-              <Select disabled={saving} value={form.level} onValueChange={v => setForm(f => ({ ...f, level: v }))}>
+              <Select disabled={saving} value={form.level} onValueChange={v => setForm(f => ({ ...f, level: v as Enums<'designation_level'> }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {['junior','mid','senior','lead','manager','executive'].map(l => <SelectItem key={l} value={l} className="capitalize">{l}</SelectItem>)}

@@ -8,10 +8,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClipboardList } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ActivityLogWithProfile = Tables<'activity_logs'> & {
+  profiles: { full_name: string | null } | null;
+};
 
 export default function ActivityLogPage() {
   const [loading, setLoading] = useState(true);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<ActivityLogWithProfile[]>([]);
 
   useEffect(() => {
     fetchLogs();
@@ -19,7 +24,7 @@ export default function ActivityLogPage() {
     const channel = supabase
       .channel('activity_logs_realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, payload => {
-        setLogs(prev => [payload.new, ...prev]);
+        setLogs(prev => [{ ...(payload.new as Tables<'activity_logs'>), profiles: null }, ...prev]);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -32,7 +37,7 @@ export default function ActivityLogPage() {
       .select('*, profiles:actor_id(full_name)')
       .order('created_at', { ascending: false })
       .limit(100);
-    setLogs(data || []);
+    setLogs((data as ActivityLogWithProfile[]) || []);
     setLoading(false);
   };
 
@@ -85,10 +90,10 @@ export default function ActivityLogPage() {
                       <div className="flex items-center gap-2">
                         <Avatar className="h-7 w-7">
                           <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                            {((log.profiles as any)?.full_name || '??').split(' ').map((n: string) => n[0]).join('').slice(0,2)}
+                            {(log.profiles?.full_name || '??').split(' ').map((n: string) => n[0]).join('').slice(0,2)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm">{(log.profiles as any)?.full_name || 'System'}</span>
+                        <span className="text-sm">{log.profiles?.full_name || 'System'}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{log.action}</TableCell>
